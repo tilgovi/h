@@ -192,15 +192,16 @@ html {
 }
 
 .dropdown-menu {
+  top:  100%;
+  margin-top: .6em;
   background: $white;
   border: solid 1px $gray-lighter;
   float: left;
   opacity: 0;
   pointer-events: none;
   position: absolute;
-  margin-top: 1px;
   z-index: 2;
-  min-width: 130px;
+  min-width: 120px;
   width: 100%;
 
   li:not(.ng-hide) {
@@ -236,11 +237,42 @@ html {
     color: inherit;
   }
 
+  // These psuedo-elements add the speech bubble tail / triangle.
+  &:before, &:after {
+    // http://www.red-team-design.com/css-diagonal-borders-still-not-rendering-properly-on-firefox
+    @include scale(.9999);
+    border-color: rgba(0, 0, 0, 0);
+    border-style: solid;
+    border-width: 0 7px 6px 7px;
+    content: '';
+    position: absolute;
+    height: 0;
+    left: 0;
+    width: 0;
+  }
+
+  &:before {
+    border-bottom-color: $gray-lighter;
+    top: -7px;
+  }
+
+  &:after {
+    border-bottom-color: $white;
+    top: -6px;
+    z-index: 3;
+  }
+
   // Aligns the dropdown menu to right
   &.pull-right {
     right: 0;
     left: auto;
     text-align: right;
+
+    // Align the tail
+    &:before, &:after {
+      left: auto;
+      right: 0;
+    }
   }
 }
 

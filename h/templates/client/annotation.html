@@ -8,8 +8,8 @@
        target="_blank"
        ng-href="{{vm.baseURI}}u/{{vm.annotation.user}}"
        >{{vm.annotation.user | persona}}</a>
-    <i class="h-icon-border-color" ng-show="vm.isHighlight() && !vm.editing"></i>
-    <i class="h-icon-insert-comment" title="General comment" ng-show="vm.isComment()"></i>
+    <!-- <i class="h-icon-border-color" ng-show="vm.isHighlight() && !vm.editing"></i> -->
+    <!-- <i class="h-icon-insert-comment" title="General comment" ng-show="vm.isComment()"></i> -->
     <span class="small" ng-show="!vm.editing">to&nbsp;</span><span class="small"><a class="annotation-timestamp" ng-show="!vm.isPrivate() && groupAnno && !vm.editing" ng-click="setSocialView()"><i class="h-icon-group" title="{{groupAnno}}"></i> {{groupAnno}}</a></span><span class="small" ng-show="vm.isPrivate() && !vm.editing"><a class="annotation-timestamp" ng-click="setSocialView(false)"><i class="h-icon-lock" title="This annotation is visible only to you."></i> Only me</a></span> <span class="small" ng-show="!vm.isPrivate() && !vm.editing && !groupAnno" style="margin-left:-3px"><a class="annotation-timestamp" ng-click="setSocialView(true)"><i class="h-icon-public" title="Public annotation" ng-show="!vm.isPrivate() && !vm.editing && !groupAnno"></i> Public</a></span>
 
     <privacy ng-click="$event.stopPropagation()"
