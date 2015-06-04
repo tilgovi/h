@@ -146,13 +146,19 @@ ol {
 }
 
 .viewcontrol {
-  margin-right: 1em;
+  margin-right: .4em;
   font-family: $sans-font-family;
 
   &:after {
-    margin-left: 1.5em;
-    content: "/";
+    margin-left: .4em;
     color: #777;
+  }
+}
+
+.h-icon-arrow-drop-down {
+  &:before {
+    margin-left: -3px;
+    // color: red;
   }
 }
 
