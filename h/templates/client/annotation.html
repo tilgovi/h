@@ -97,7 +97,7 @@
 </div>
 <!-- / Tags -->
 
-<div class="annotation-section small" ng-if="vm.editing" ng-show="currentView.name == 'All'">
+<div class="annotation-section small" ng-if="vm.editing">
   <p ng-show="level.text == 'Only Me'"><i class="h-icon-lock"></i> This annotation is viewable only to you.</p>
   <p ng-show="(level.text != 'Public') && (level.text != 'Only Me')"><i class="h-icon-group"></i> This annotation is viewable only to people who follow the link to the group.</p>
   <p ng-show="level.text == 'Public'"><i class="h-icon-public"></i> This annotation is viewable to everyone.</p>
