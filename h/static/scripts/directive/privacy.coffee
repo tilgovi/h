@@ -33,20 +33,10 @@ module.exports = ['localStorage', 'permissions', '$rootScope', (localStorage, pe
     controller.$parsers.push (privacy) ->
       return unless privacy?
 
-      if $rootScope.socialview.name != 'All'
-        if $rootScope.socialview.name == 'Only Me'
-          newPermissions = permissions.private()
-        else if scope.draft
-          console.log "Ran."
-          newPermissions = permissions.private()
-          $rootScope.draft = false
-        else
-          newPermissions = permissions.public()
+      if isPrivate(privacy.name)
+        newPermissions = permissions.private()
       else
-        if isPrivate(privacy.name)
-          newPermissions = permissions.private()
-        else
-          newPermissions = permissions.public()
+        newPermissions = permissions.public()
 
       # Cannot change the $modelValue into a new object
       # Just update its properties

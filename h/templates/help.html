@@ -6,7 +6,12 @@
   <style type="text/css">
     body {background: #FFF !important;}
     ol li {margin-top: .5em !important;}
-    ol {margin-top: 1em !important;}
+    ol {
+      margin-top: 1em !important;
+      margin-left: 1em !important;
+      list-style: inside !important;
+      list-style-type: decimal !important;
+    }
   </style>
   {{ super() }}
   {% if is_onboarding %}

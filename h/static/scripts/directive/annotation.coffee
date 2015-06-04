@@ -182,8 +182,7 @@ AnnotationController = [
     # @name annotation.AnnotationController#save
     # @description Saves any edits and returns to the viewer.
     ###
-    $scope.published = true
-    this.save = (published = true) ->
+    this.save = () ->
       unless model.user or model.deleted
         return flash.info('Please sign in to save your annotations.')
       unless validate(@annotation)
@@ -191,19 +190,6 @@ AnnotationController = [
 
       if $scope.level.name != ('Public' or 'Only Me')
         @annotation.tags.push { text:"group:" + $scope.level.text }
-
-      if published
-        $scope.published = true
-        keep = []
-        for tag in @annotation.tags
-          if tag.text == "group:draft"
-            continue
-          else
-            keep.push tag
-        @annotation.tags = keep
-      else
-        $scope.published = false
-        @annotation.tags.push { text:"group:draft"}
 
       # Update stored tags with the new tags of this annotation
       newTags = @annotation.tags.filter (tag) ->
@@ -300,9 +286,7 @@ AnnotationController = [
       for tag in model.tags
         str = "group:"
         re = new RegExp(str, "g");
-        if tag == "group:draft"
-          $scope.published = false
-        else if re.test(tag)
+        if re.test(tag)
           $scope.groupAnno = tag.substring(str.length, tag.length)
 
       # Form the tags for ngTagsInput.
@@ -323,6 +307,14 @@ AnnotationController = [
       str = "group:"
       re = new RegExp(str, "g");
       !re.test(tag.text)
+
+    $scope.setSocialView = (Public = undefined) ->
+      if Public == undefined
+        $rootScope.socialview = {name:$scope.groupAnno, icon:'h-icon-group', selected:true, editable:false, link:false}
+      else if Public
+        $rootScope.socialview = $rootScope.views[1]
+      else
+        $rootScope.socialview = $rootScope.views[2]
 
     updateTimestamp = (repeat=false) =>
       @timestamp = time.toFuzzyString model.updated
