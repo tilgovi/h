@@ -141,6 +141,7 @@ AnnotationController = [
     #              if they are open.
     ###
     this.view = ->
+      window.top.document.getElementsByName('insert-comment')[0].title = "New Page Note"
       @editing = false
       @action = 'view'
 
@@ -244,7 +245,7 @@ AnnotationController = [
     # @description Called to update the view when the model changes.
     ###
     this.render = ->
-      # Extend the view model with a copy of the domain model.
+      # Extend the viewmodel with a copy of the domain model.
       # Note that copy is used so that deep properties aren't shared.
       angular.extend @annotation, angular.copy model
 

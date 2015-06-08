@@ -265,6 +265,7 @@ module.exports = class Guest extends Annotator
     return confirm "You have selected a very short piece of text: only " + length + " chars. Are you sure you want to highlight this?"
 
   onSuccessfulSelection: (event, immediate) ->
+    document.getElementsByName('insert-comment')[0].title = "New Note"
     unless event?
       throw "Called onSuccessfulSelection without an event!"
     unless event.segments?
@@ -286,6 +287,7 @@ module.exports = class Guest extends Annotator
     true
 
   onFailedSelection: (event) ->
+    document.getElementsByName('insert-comment')[0].title = "New Page Note"
     @adder.hide()
     @selectedTargets = []
 
