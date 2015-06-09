@@ -1,4 +1,5 @@
 from . import atom_feed
+from . import stream
 
 
 class AnnotationsAtomRendererFactory(object):
@@ -36,8 +37,21 @@ class AnnotationsAtomRendererFactory(object):
         system["request"].response.content_type = "application/atom+xml"
         return atom_feed.render_annotations(request=system["request"], **value)
 
+class StreamRendererFactory(object):
+    import stream
+
+    def __init__(self, info):
+        pass
+
+    def __call__(self, value, system):
+        system["request"].response.content_type = "text/html"
+        return stream.user_activity(request=system["request"], **value)
+
 
 def includeme(config):
     config.add_renderer(
         name="annotations_atom",
         factory="h.renderers.AnnotationsAtomRendererFactory")
+    config.add_renderer( 
+        name="stream_alt",
+        factory="h.renderers.StreamRendererFactory")

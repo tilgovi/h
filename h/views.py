@@ -15,6 +15,8 @@ from .resources import Application, Stream
 from . import api_client
 from . import util
 
+import stream 
+
 log = logging.getLogger(__name__)
 
 _ = i18n.TranslationStringFactory(__package__)
@@ -147,9 +149,9 @@ def stream(context, request):
             "type": "application/atom+xml"}]
         return context
 
-
 @view_config(renderer='annotations_atom', route_name='stream_atom')
-def stream_atom(request):
+def stream_atom(request): 
+    print 'stream_atom'
     params = dict(request.params)
 
     # The maximum value that this function allows the limit param.
@@ -216,6 +218,22 @@ def _validate_blocklist(config):
             "The h.blocklist setting in the config file is invalid: " +
             str(err))
 
+def stream_js(request):
+    from pyramid.response import Response
+    js = """function embed_conversation(id) {
+    element = document.getElementById(id);
+    element.outerHTML = '<iframe height="300" src="https://hypothes.is/a/' + id + '"/>'
+    return false;
+}"""
+    r = Response(js)
+    r.content_type = b'text/javascript'
+    return r
+
+@view_config(renderer='stream_alt', route_name='stream_alt')
+def stream_alt(request):
+    print 'stream_alt'
+    print request.query_string
+    return dict(body=None)
 
 def includeme(config):
     config.include('h.assets')
@@ -227,6 +245,12 @@ def includeme(config):
     config.add_route('onboarding', '/welcome')
     config.add_route('stream', '/stream')
     config.add_route('stream_atom', '/stream.atom')
+
+    config.add_route('stream_alt', '/stream.alt')
+
+    config.add_route('stream_js', '/js')
+    config.add_view(stream_js, route_name='stream_js')
+
 
     _validate_blocklist(config)
 
