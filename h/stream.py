@@ -278,22 +278,29 @@ def make_user_activity(request,user):
     s = '<h1>Hypothesis activity for %s</h1>' % user
 
     for uri in activity.uris_by_recent_update:
+
         bundles = activity.uri_bundles[uri]
-        for bundle in bundles:
-            dt_str = bundle['updated']
-            dt = datetime.strptime(dt_str[0:16], "%Y-%m-%dT%H:%M")
-            when = Hypothesis.friendly_time(dt)
-            uri = bundle['uri']
-            doc_title = bundle['doc_title']
-            via_url = Hypothesis().via_url
-            try:
-                s += """<div class="stream-url">
+
+        for i in range(len(bundles)):
+
+            bundle = bundles[i]
+
+            if i == 0:
+                dt_str = bundle['updated']
+                dt = datetime.strptime(dt_str[0:16], "%Y-%m-%dT%H:%M")
+                when = Hypothesis.friendly_time(dt)
+                uri = bundle['uri']
+                doc_title = bundle['doc_title']
+                via_url = Hypothesis().via_url
+                try:
+                    s += """<div class="stream-url">
     <a target="_new" class="ng-binding" href="%s">%s</a> 
     (<a title="use Hypothesis proxy" target="_new" href="{%s}/{%s}">via</a>)
     <span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span> 
     </div>""" % (uri, doc_title, via_url, uri, when)
-            except:
-                tb = traceback.format_exc()
+                except:
+                    tb = traceback.format_exc()
+                    print tb
 
             references_html = bundle['references_html']
             quote_html = bundle['quote_html']
