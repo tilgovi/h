@@ -222,7 +222,7 @@ def stream_js(request):
     from pyramid.response import Response
     js = """function embed_conversation(id) {
     element = document.getElementById(id);
-    element.outerHTML = '<iframe height="300" src="https://hypothes.is/a/' + id + '"/>'
+    element.outerHTML = '<iframe height="300" width="85%" src="https://hypothes.is/a/' + id + '"/>'
     return false;
 }"""
     r = Response(js)
