@@ -295,7 +295,7 @@ def make_user_activity(request,user):
                 try:
                     s += """<div class="stream-url">
     <a target="_new" class="ng-binding" href="%s">%s</a> 
-    (<a title="use Hypothesis proxy" target="_new" href="{%s}/{%s}">via</a>)
+    (<a title="use Hypothesis proxy" target="_new" href="%s/%s">via</a>)
     <span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span> 
     </div>""" % (uri, doc_title, via_url, uri, when)
                 except:
