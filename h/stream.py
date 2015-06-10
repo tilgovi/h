@@ -331,14 +331,14 @@ def make_user_activity(request, user):
                 when = Hypothesis.friendly_time(dt)
                 doc_title = bundle['doc_title']
                 via_url = Hypothesis().via_url
-                try:
-                    s += """<div class="stream-url">
-        <a target="_new" class="ng-binding" href="%s">%s</a> 
-        (<a title="use Hypothesis proxy" target="_new" href="{%s}/{%s}">via</a>)
-        <span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span> 
-        </div>""" % (uri, doc_title, via_url, uri, when)
-                except:
-                    tb = traceback.format_exc()
+                s += '<div class="stream-url">'
+                if uri.startswith('http'):
+                  s += """<a target="_new" class="ng-binding" href="%s">%s</a> 
+        (<a title="use Hypothesis proxy" target="_new" href="{%s}/{%s}">via</a>)"""  % (uri, doc_title, via_url, uri)
+                else:
+                  s += doc_title
+                s += """<span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span>
+        </div>""" % when
 
             references_html = bundle['references_html']
             quote_html = bundle['quote_html']
