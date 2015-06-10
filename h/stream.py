@@ -361,23 +361,30 @@ def make_user_activity(request, user):
 
     return s
 
-def format_active_users():
-    users = Hypothesis().get_active_users()
-    users = ['<option>' + user[0] + '</option>' for user in users]
+def format_active_users(user):
+    active_users = Hypothesis().get_active_users()
+    select = ''
+    for active_user in active_users:
+        print active_user
+        if active_user[0] == user:
+            option = '<option selected value="%s">%s (%s)</option>'
+        else:
+            option = '<option value="%s">%s (%s)</option>'
+        option = option % (active_user[0], active_user[0], active_user[1])
+        select += option
     select = """<select class="stream-active-users" name="active_users" 
 onchange="javascript:show_user()">
 %s
-</select>""" % '\n'.join(users)
+</select>""" % select
     return select
 
 def user_activity(request,body):
-    users = format_active_users()    
     q = urlparse.parse_qs(request.query_string)
     if q.has_key('user'):
         user = q['user'][0]
     else:
-        user = Hypothesis().get_active_users()[0][0]
-    print 'user ' + user
+        user = Hypothesis().get_active_users()
+    users = format_active_users(user)    
     head = '<h1>Hypothesis activity for %s</h1>' % user
     body = make_user_activity(request,user)
     return renderers.render(

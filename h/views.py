@@ -230,7 +230,7 @@ function embed_conversation(id) {
 function show_user() {
    var select = document.getElementsByName('active_users')[0];
    var i = select.selectedIndex;
-   var user = select[i].text;
+   var user = select[i].value;
    location.href= '/stream.alt?user=' + user;
 }
 """
