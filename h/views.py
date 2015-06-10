@@ -220,11 +220,20 @@ def _validate_blocklist(config):
 
 def stream_js(request):
     from pyramid.response import Response
-    js = """function embed_conversation(id) {
+    js = """
+function embed_conversation(id) {
     element = document.getElementById(id);
     element.outerHTML = '<iframe height="300" width="85%" src="https://hypothes.is/a/' + id + '"/>'
     return false;
-}"""
+}
+
+function show_user() {
+   var select = document.getElementsByName('active_users')[0];
+   var i = select.selectedIndex;
+   var user = select[i].text;
+   location.href= '/stream.alt?user=' + user;
+}
+"""
     r = Response(js)
     r.content_type = b'text/javascript'
     return r

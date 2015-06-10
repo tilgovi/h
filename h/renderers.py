@@ -38,12 +38,11 @@ class AnnotationsAtomRendererFactory(object):
         return atom_feed.render_annotations(request=system["request"], **value)
 
 class StreamRendererFactory(object):
-    import stream
-
     def __init__(self, info):
         pass
 
     def __call__(self, value, system):
+        print value
         system["request"].response.content_type = "text/html"
         return stream.user_activity(request=system["request"], **value)
 
