@@ -365,7 +365,6 @@ def format_active_users(user):
     active_users = Hypothesis().get_active_users()
     select = ''
     for active_user in active_users:
-        print active_user
         if active_user[0] == user:
             option = '<option selected value="%s">%s (%s)</option>'
         else:
