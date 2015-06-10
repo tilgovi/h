@@ -229,7 +229,6 @@ class Hypothesis:
         ref_html = html.format(anno_url=anno_url, ref=ref)
         return ref_html
 
-
 class HypothesisUserActivity:
 
     def __init__(self,limit):
@@ -237,14 +236,35 @@ class HypothesisUserActivity:
         self.uri_updates = {}
         self.uris_by_recent_update = []
         self.limit = limit
+        self.uri_references = {}
 
-    def add_row(self,row):
+    def count_references(self, refs, uri):
+        if self.uri_references.has_key(uri) == False:
+            self.uri_references[uri] = defaultdict(int)
+        for ref in refs:
+            self.uri_references[uri][ref] += 1
+
+    def contains_duplicate_references(self, uri):
+        if self.uri_references.has_key(uri):
+           refs = self.uri_references[uri].keys()
+           for ref in refs:
+                if self.uri_references[uri][ref] > 1:
+                    return True
+        return False
+
+    def add_row(self, row):
         info = Hypothesis.get_info_from_row(row)
-        references_html = Hypothesis.make_references_html(info)
+        uri = info['uri']
+        refs = info['references']
+        self.count_references(refs, uri)
+        if self.contains_duplicate_references(uri):
+            return
+        else:
+            references_html = Hypothesis.make_references_html(info)
+
         quote_html = Hypothesis.make_quote_html(info)
         text_html = Hypothesis.make_text_html(info)
         tag_html = Hypothesis.make_tag_html(info)
-        uri = info['uri']
         doc_title = info['doc_title']
         updated = info['updated']
         is_page_note = info['is_page_note']
@@ -253,18 +273,20 @@ class HypothesisUserActivity:
                 self.uri_updates[uri] = updated
         else:
             self.uri_updates[uri] = updated
-
+        references = info['references']
         self.uri_bundles[uri].append( {'uri':uri, 'doc_title':doc_title,'updated':updated, 
                                        'references_html':references_html, 'quote_html':quote_html, 
                                         'text_html':text_html, 'tag_html':tag_html, 
-                                        'is_page_note':is_page_note} )
+                                        'is_page_note':is_page_note, 'references':references} )
 
     def sort(self):
         sorted_uri_updates = sorted(self.uri_updates.items(), key=operator.itemgetter(1), reverse=True)
         for update in sorted_uri_updates:
             self.uris_by_recent_update.append( update[0] )
 
-def make_user_activity(request,user):
+
+def make_user_activity(request, user):
+
     activity = HypothesisUserActivity(limit=15)
     response = requests.get('%s/search?user=%s&limit=200' %
                         (Hypothesis().api_url, user) )
@@ -289,18 +311,16 @@ def make_user_activity(request,user):
                 dt_str = bundle['updated']
                 dt = datetime.strptime(dt_str[0:16], "%Y-%m-%dT%H:%M")
                 when = Hypothesis.friendly_time(dt)
-                uri = bundle['uri']
                 doc_title = bundle['doc_title']
                 via_url = Hypothesis().via_url
                 try:
                     s += """<div class="stream-url">
-    <a target="_new" class="ng-binding" href="%s">%s</a> 
-    (<a title="use Hypothesis proxy" target="_new" href="%s/%s">via</a>)
-    <span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span> 
-    </div>""" % (uri, doc_title, via_url, uri, when)
+        <a target="_new" class="ng-binding" href="%s">%s</a> 
+        (<a title="use Hypothesis proxy" target="_new" href="{%s}/{%s}">via</a>)
+        <span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span> 
+        </div>""" % (uri, doc_title, via_url, uri, when)
                 except:
                     tb = traceback.format_exc()
-                    print tb
 
             references_html = bundle['references_html']
             quote_html = bundle['quote_html']
