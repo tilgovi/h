@@ -334,7 +334,7 @@ def make_user_activity(request, user):
                 s += '<div class="stream-url">'
                 if uri.startswith('http'):
                   s += """<a target="_new" class="ng-binding" href="%s">%s</a> 
-        (<a title="use Hypothesis proxy" target="_new" href="{%s}/{%s}">via</a>)"""  % (uri, doc_title, via_url, uri)
+        (<a title="use Hypothesis proxy" target="_new" href="%s/%s">via</a>)"""  % (uri, doc_title, via_url, uri)
                 else:
                   s += doc_title
                 s += """<span class="annotation-timestamp small pull-right ng-binding ng-scope">{%s}</span>
