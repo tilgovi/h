@@ -2,7 +2,6 @@
 <head>
     <link rel="stylesheet" href="https://hypothes.is/assets/styles/app.min.css" />
     <link rel="stylesheet" href="https://hypothes.is/assets/styles/hypothesis.min.css" />
-    <script src="/js"></script>
     <style>
     body { padding: 10px; font-size: 10pt; }
     h1 { font-weight: bold; margin-bottom:10pt }
@@ -11,6 +10,7 @@
     .stream-quote { margin-left: 3%%; margin-bottom: 4pt; font-style: italic }
     .stream-text { margin-bottom: 4pt; margin-left:7%%; word-wrap: break-word }
     .stream-tags { margin-bottom: 10pt; }
+    .stream-active-users-widget { float:right;}
     ul, li { display: inline }
     li { color: #969696; font-size: smaller; border: 1px solid #d3d3d3; border-radius: 2px; padding: 0 .4545em .1818em }
     img { max-width: 100%% }
@@ -20,6 +20,9 @@
     </style>
 </head>
 <body class="ng-scope">
-{{body|safe}}
+<p class="stream-active-users-widget">recently active users {{users|safe}}</p>
+{{head|safe}}
+{{main|safe}}
+<script src="/js"></script>
 </body>
 </html>

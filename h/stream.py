@@ -17,6 +17,7 @@ class Hypothesis:
     def __init__(self, username=None, password=None):
         self.app_url = 'https://hypothes.is/app'
         self.api_url = 'https://hypothes.is/api'
+        self.query_url = 'https://hypothes.is/api/search?{query}'
         self.anno_url = 'https://hypothes.is/a'
         self.via_url = 'https://via.hypothes.is'
         self.username = username
@@ -97,6 +98,23 @@ class Hypothesis:
         data = json.dumps(payload)
         r = requests.post(self.api_url + '/annotations', headers=headers, data=data)
         return r
+
+    def call_search_api(self, args={'limit':200}):
+        h_url = Hypothesis().query_url.format(query=urlencode(args))
+        s = requests.get(h_url).text.decode('utf-8')
+        j = json.loads(s)
+        return j
+
+    def get_active_users(self):
+        j = Hypothesis().call_search_api()
+        users = defaultdict(int)
+        rows = j['rows']
+        for row in rows:
+            info = self.get_info_from_row(row)
+            user = info['user']
+            users[user] += 1
+        users = sorted(users.items(), key=operator.itemgetter(1,0), reverse=True)
+        return users
 
     @staticmethod
     def friendly_time(dt):
@@ -297,7 +315,7 @@ def make_user_activity(request, user):
         activity.add_row(row)
     activity.sort()
 
-    s = '<h1>Hypothesis activity for %s</h1>' % user
+    s = ''
 
     for uri in activity.uris_by_recent_update:
 
@@ -343,10 +361,24 @@ def make_user_activity(request, user):
 
     return s
 
+def format_active_users():
+    users = Hypothesis().get_active_users()
+    users = ['<option>' + user[0] + '</option>' for user in users]
+    select = """<select class="stream-active-users" name="active_users" 
+onchange="javascript:show_user()">
+%s
+</select>""" % '\n'.join(users)
+    return select
+
 def user_activity(request,body):
-    print 'user_activity'
-    print request.query_string
-    user = urlparse.parse_qs(request.query_string)['user'][0]
+    users = format_active_users()    
+    q = urlparse.parse_qs(request.query_string)
+    if q.has_key('user'):
+        user = q['user'][0]
+    else:
+        user = Hypothesis().get_active_users()[0][0]
+    print 'user ' + user
+    head = '<h1>Hypothesis activity for %s</h1>' % user
     body = make_user_activity(request,user)
     return renderers.render(
-        'h:templates/stream.html', {"body": body}, request=request)
+        'h:templates/stream.html', {'head':head, 'users':users, 'main':body}, request=request)
