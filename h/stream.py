@@ -382,7 +382,8 @@ def user_activity(request,body):
     if q.has_key('user'):
         user = q['user'][0]
     else:
-        user = Hypothesis().get_active_users()
+        users = Hypothesis().get_active_users()
+        user = users[0][0]
     users = format_active_users(user)    
     head = '<h1>Hypothesis activity for %s</h1>' % user
     body = make_user_activity(request,user)
