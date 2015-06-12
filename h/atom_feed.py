@@ -113,6 +113,10 @@ def _feed_entry_from_annotation(
         entry["links"].append({"rel": "alternate", "type": "application/json",
                                "href": annotation_api_url(annotation)})
 
+    entry["links"].append({"rel": "related", 
+                           "href": annotation.get('uri')})
+
+
     return entry
 
 
