@@ -218,26 +218,6 @@ def _validate_blocklist(config):
             "The h.blocklist setting in the config file is invalid: " +
             str(err))
 
-def stream_js(request):
-    from pyramid.response import Response
-    js = """
-function embed_conversation(id) {
-    element = document.getElementById(id);
-    element.outerHTML = '<iframe height="300" width="85%" src="https://hypothes.is/a/' + id + '"/>'
-    return false;
-}
-
-function show_user() {
-   var select = document.getElementsByName('active_users')[0];
-   var i = select.selectedIndex;
-   var user = select[i].value;
-   location.href= '/stream.alt?user=' + user;
-}
-"""
-    r = Response(js)
-    r.content_type = b'text/javascript'
-    return r
-
 def includeme(config):
     config.include('h.assets')
     config.include('h.layouts')
@@ -249,11 +229,11 @@ def includeme(config):
     config.add_route('stream', '/stream')
     config.add_route('stream_atom', '/stream.atom')
 
-    config.add_route('stream_alt', '/stream.alt')
-    config.add_view(HypothesisUserActivity.alt_stream, route_name='stream_alt')
+    config.add_route('alt_stream', '/stream.alt')
+    config.add_view(HypothesisUserActivity.alt_stream, route_name='alt_stream')
 
-    config.add_route('stream_js', '/js')
-    config.add_view(stream_js, route_name='stream_js')
+    config.add_route('alt_stream_js', '/stream.alt.js')
+    config.add_view(HypothesisUtils.alt_stream_js, route_name='alt_stream_js')
 
 
     _validate_blocklist(config)

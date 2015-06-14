@@ -260,6 +260,27 @@ class HypothesisUtils:
         ref_html = html.format(anno_url=anno_url, ref=ref)
         return ref_html
 
+    @staticmethod
+    def alt_stream_js(request):
+        from pyramid.response import Response
+        js = """
+    function embed_conversation(id) {
+        element = document.getElementById(id);
+        element.outerHTML = '<iframe height="300" width="85%" src="https://hypothes\
+    .is/a/' + id + '"/>'
+        return false;
+    }
+
+    function show_user() {
+       var select = document.getElementsByName('active_users')[0];
+       var i = select.selectedIndex;
+       var user = select[i].value;
+       location.href= '/stream.alt?user=' + user;
+    } """
+        r = Response(js)
+        r.content_type = b'text/javascript'
+        return r
+
 class HypothesisUserActivity:
 
     def __init__(self,limit):
@@ -316,8 +337,7 @@ class HypothesisUserActivity:
             self.uris_by_recent_update.append( update[0] )
 
     @staticmethod
-    def alt_stream(request):
-        q = urlparse.parse_qs(request.query_string)
+    def alt_stream_user(q):
         if q.has_key('user'):
             user = q['user'][0]
         else:
@@ -325,13 +345,20 @@ class HypothesisUserActivity:
             user = users[0][0] 
         users = HypothesisUserActivity.format_active_users(user)    
         head = '<h1>Hypothesis activity for %s</h1>' % user
-        body = HypothesisUserActivity.make_user_activity(user)
-        html = HypothesisUserActivity.user_activity_template( {'head':head, 'users':users, 'main':body} )
+        body = HypothesisUserActivity.make_alt_stream(user=user)
+        html = HypothesisUserActivity.alt_stream_template( {'head':head, 'users':users, 'main':body} )
         return Response(html.encode('utf-8'))
 
     @staticmethod
-    def make_user_activity(user):
+    def alt_stream(request):
+        q = urlparse.parse_qs(request.query_string)
+        if q.has_key('url'):
+            pass
+        else:
+            return HypothesisUserActivity.alt_stream_user(q)
 
+    @staticmethod
+    def make_alt_stream(user=None, url=None):
 
         activity = HypothesisUserActivity(limit=15)
         response = requests.get('%s/search?user=%s&limit=200' %
@@ -407,7 +434,7 @@ class HypothesisUserActivity:
         return select
 
     @staticmethod
-    def user_activity_template(args):
+    def alt_stream_template(args):
         return u"""<html>
 <head>
     <link rel="stylesheet" href="https://hypothes.is/assets/styles/app.min.css" />
@@ -434,7 +461,7 @@ in.css" />
 <p class="stream-active-users-widget">recently active users {users}</p>
 {head}
 {main}
-<script src="/js"></script>
+<script src="/stream.alt.js"></script>
 </body>
 </html> """.format(head=args['head'],main=args['main'],users=args['users'])
 
