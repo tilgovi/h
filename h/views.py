@@ -15,7 +15,7 @@ from .resources import Application, Stream
 from . import api_client
 from . import util
 
-import stream 
+from h_util import *
 
 log = logging.getLogger(__name__)
 
@@ -238,12 +238,6 @@ function show_user() {
     r.content_type = b'text/javascript'
     return r
 
-@view_config(renderer='stream_alt', route_name='stream_alt')
-def stream_alt(request):
-    print 'stream_alt'
-    print request.query_string
-    return dict(body=None)
-
 def includeme(config):
     config.include('h.assets')
     config.include('h.layouts')
@@ -256,6 +250,7 @@ def includeme(config):
     config.add_route('stream_atom', '/stream.atom')
 
     config.add_route('stream_alt', '/stream.alt')
+    config.add_view(HypothesisUserActivity.alt_stream, route_name='stream_alt')
 
     config.add_route('stream_js', '/js')
     config.add_view(stream_js, route_name='stream_js')
