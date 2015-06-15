@@ -354,11 +354,11 @@ class HypothesisStream:
                 picklist = ''
         if q.has_key('by_url'):
             head = '<p class="stream-selector"><a href="/stream.alt">view recently active users</a></p>'
-            head += '<h1>Hypothesis recently annotated URLs</h1>'
+            head += '<h1>urls recently annotated</h1>'
             body = HypothesisStream.make_alt_stream(by_url=True)
         else:
             head = '<p class="stream-selector"><a href="/stream.alt?by_url=yes">view recently annotated urls</a></p>'
-            head += '<h1 class="stream-active-users-widget">Hypothesis recent annotators for {user} <span class="stream-picklist">{users}</span></h1>'.format(user=user, users=picklist)
+            head += '<h1 class="stream-active-users-widget">urls recently annotated by {user} <span class="stream-picklist">{users}</span></h1>'.format(user=user, users=picklist)
             body = HypothesisStream.make_alt_stream(user=user)
         html = HypothesisStream.alt_stream_template( {'head':head,  'main':body} )
         return Response(html.encode('utf-8'))

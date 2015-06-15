@@ -1,6 +1,4 @@
 from . import atom_feed
-from . import stream
-
 
 class AnnotationsAtomRendererFactory(object):
 
