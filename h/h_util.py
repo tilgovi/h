@@ -213,7 +213,6 @@ class HypothesisUtils:
         return {'updated':updated, 'user':user, 'uri':uri, 'doc_title':doc_title, 
                 'tags':tags, 'text':text, 'references':refs, 'target':target, 'is_page_note':is_page_note, 'links':links }
 
-
     @staticmethod
     def make_tag_html(info):
         if len(info['tags']):
@@ -266,8 +265,7 @@ class HypothesisUtils:
         js = """
     function embed_conversation(id) {
         element = document.getElementById(id);
-        element.outerHTML = '<iframe height="300" width="85%" src="https://hypothes\
-    .is/a/' + id + '"/>'
+        element.outerHTML = '<iframe height="300" width="85%" src="https://hypothes.is/a/' + id + '"/>'
         return false;
     }
 
@@ -281,13 +279,12 @@ class HypothesisUtils:
         r.content_type = b'text/javascript'
         return r
 
-class HypothesisUserActivity:
+class HypothesisStream:
 
-    def __init__(self,limit):
+    def __init__(self):
         self.uri_bundles = defaultdict(list)
         self.uri_updates = {}
         self.uris_by_recent_update = []
-        self.limit = limit
         self.uri_references = {}
 
     def count_references(self, refs, uri):
@@ -306,6 +303,7 @@ class HypothesisUserActivity:
 
     def add_row(self, row):
         info = HypothesisUtils.get_info_from_row(row)
+        user = info['user']
         uri = info['uri']
         refs = info['references']
         self.count_references(refs, uri)
@@ -328,7 +326,7 @@ class HypothesisUserActivity:
         references = info['references']
         self.uri_bundles[uri].append( {'uri':uri, 'doc_title':doc_title,'updated':updated, 
                                        'references_html':references_html, 'quote_html':quote_html, 
-                                        'text_html':text_html, 'tag_html':tag_html, 
+                                        'text_html':text_html, 'tag_html':tag_html, 'user':user,
                                         'is_page_note':is_page_note, 'references':references} )
 
     def sort(self):
@@ -337,32 +335,44 @@ class HypothesisUserActivity:
             self.uris_by_recent_update.append( update[0] )
 
     @staticmethod
-    def alt_stream_user(q):
+    def get_most_active_user_and_picklist_and_list(q):
         if q.has_key('user'):
             user = q['user'][0]
+            user, picklist, list = HypothesisStream.format_active_users(user=user)
         else:
-            users = HypothesisUtils().get_active_users()
-            user = users[0][0] 
-        users = HypothesisUserActivity.format_active_users(user)    
-        head = '<h1>Hypothesis activity for %s</h1>' % user
-        body = HypothesisUserActivity.make_alt_stream(user=user)
-        html = HypothesisUserActivity.alt_stream_template( {'head':head, 'users':users, 'main':body} )
-        return Response(html.encode('utf-8'))
+            user, picklist, list = HypothesisStream.format_active_users(user=None)
+        list = [x[0] for x in list]
+        return user, picklist, list
 
     @staticmethod
     def alt_stream(request):
         q = urlparse.parse_qs(request.query_string)
-        if q.has_key('url'):
-            pass
+        user, picklist, list = HypothesisStream.get_most_active_user_and_picklist_and_list(q)  
+        if q.has_key('user'):
+            user = q['user'][0]
+            if user not in list:
+                picklist = ''
+        if q.has_key('by_url'):
+            head = '<p class="stream-selector"><a href="/stream.alt">view recently active users</a></p>'
+            head += '<h1>Hypothesis recently annotated URLs</h1>'
+            body = HypothesisStream.make_alt_stream(by_url=True)
         else:
-            return HypothesisUserActivity.alt_stream_user(q)
+            head = '<p class="stream-selector"><a href="/stream.alt?by_url=yes">view recently annotated urls</a></p>'
+            head += '<h1 class="stream-active-users-widget">Hypothesis recent annotators for {user} <span class="stream-picklist">{users}</span></h1>'.format(user=user, users=picklist)
+            body = HypothesisStream.make_alt_stream(user=user)
+        html = HypothesisStream.alt_stream_template( {'head':head,  'main':body} )
+        return Response(html.encode('utf-8'))
 
     @staticmethod
-    def make_alt_stream(user=None, url=None):
-
-        activity = HypothesisUserActivity(limit=15)
-        response = requests.get('%s/search?user=%s&limit=200' %
+    def make_alt_stream(user=None, by_url=False):
+        activity = HypothesisStream()
+        if user is not None:
+            response = requests.get('%s/search?user=%s&limit=200' %
                             (HypothesisUtils().api_url, user) )
+        elif by_url == True:
+            response = requests.get('%s/search?limit=200' % HypothesisUtils().api_url)
+        else:
+            return Response('what now?')
 
         rows = response.json()['rows']
 
@@ -395,6 +405,12 @@ class HypothesisUserActivity:
                     s += """<span class="annotation-timestamp small pull-right ng-binding ng-scope">%s</span>
             </div>""" % when
 
+                s += '<div class="paper stream-quote">'
+
+                if by_url == True:
+                    user = bundle['user']
+                    s += '<p class="stream-user">%s</p>' % user
+
                 references_html = bundle['references_html']
                 quote_html = bundle['quote_html']
                 text_html = bundle['text_html']
@@ -403,25 +419,28 @@ class HypothesisUserActivity:
                 is_page_note = bundle['is_page_note']
 
                 if quote_html != '':
-                    s += """<div class="stream-quote">%s</div>"""  % quote_html
+                    s += """<p class="annotation-quote">%s</p>"""  % quote_html
 
                 if text_html != '' and references_html == '':
-                    s += """<div class="stream-text">%s</div>""" %  text_html
+                    s += """<p class="stream-text">%s</p>""" %  (text_html)
 
                 if references_html != '':
                     s += '<p class="stream-reference">%s</p>\n' % references_html
 
                 if tag_html != '':
-                    s += '<div class="stream-tags">%s</div>' % tag_html
+                    s += '<p class="stream-tags">%s</p>' % tag_html
+
+                s += '</div>'
 
         return s
 
     @staticmethod        
-    def format_active_users(user):
+    def format_active_users(user=None):
         active_users = HypothesisUtils().get_active_users()
+        most_active_user = active_users[0][0]
         select = ''
         for active_user in active_users:
-            if active_user[0] == user:
+            if user is not None and active_user[0] == user:
                 option = '<option selected value="%s">%s (%s)</option>'
             else:
                 option = '<option value="%s">%s (%s)</option>'
@@ -431,7 +450,7 @@ class HypothesisUserActivity:
     onchange="javascript:show_user()">
     %s
     </select>""" % select
-        return select
+        return most_active_user, select, active_users
 
     @staticmethod
     def alt_stream_template(args):
@@ -444,11 +463,14 @@ in.css" />
     body {{ padding: 10px; font-size: 10pt; }}
     h1 {{ font-weight: bold; margin-bottom:10pt }}
     .stream-url {{ margin-top: 12pt; margin-bottom: 4pt; overflow:hidden; border-style: solid; border-color: rgb(179, 173, 173); border-width: thin; padding: 4px;}}
-    .stream-reference {{ margin-bottom:10pt; margin-left:6% }}
-    .stream-quote {{ margin-left: 3%; margin-bottom: 4pt; font-style: italic }}
-    .stream-text {{ margin-bottom: 4pt; margin-left:7%; word-wrap: break-word }}
+    .stream-reference {{ margin-bottom:10pt; /*margin-left:6%*/ }}
+    .stream-quote {{ /*margin-left: 3%;*/ margin-bottom: 4pt; font-style: italic }}
+    .stream-text {{ margin-bottom: 4pt; /*margin-left:7%;*/ word-wrap: break-word }}
     .stream-tags {{ margin-bottom: 10pt; }}
-    .stream-active-users-widget {{ float:right;}}
+    .stream-user {{ font-weight: bold; margin-bottom: 4pt}}
+    .stream-selector {{ float:right; }}
+    .stream-picklist {{ margin-left: 20pt }}
+    .stream-active-users-widget {{ margin-top:0;}}
     ul, li {{ display: inline }}
     li {{ color: #969696; font-size: smaller; border: 1px solid #d3d3d3; border-radius: 2px; padding: 0 .4545em .1818em }}
     img {{ max-width: 100% }}
@@ -458,12 +480,11 @@ in.css" />
     </style>
 </head>
 <body class="ng-scope">
-<p class="stream-active-users-widget">recently active users {users}</p>
 {head}
 {main}
 <script src="/stream.alt.js"></script>
 </body>
-</html> """.format(head=args['head'],main=args['main'],users=args['users'])
+</html> """.format(head=args['head'],main=args['main'])
 
 """
 if __name__ == '__main__':
