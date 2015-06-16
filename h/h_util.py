@@ -225,14 +225,21 @@ class HypothesisUtils:
 
     @staticmethod
     def make_quote_html(info):
-        if len(info['target']) == 0:
-               return ''
-        uri = info['uri']
-        selector = info['target'][0]['selector']
         quote = ''
-        for sel in selector:
-            if sel.has_key('exact'):
-                quote = sel['exact']
+        if info.has_key('target') == False:
+            return quote 
+        if len(info['target']) == 0:
+            return quote
+        if info['target'][0].has_key('selector') == False:
+            return quote 
+        uri = info['uri']
+        try:
+          selector = info['target'][0]['selector']
+          for sel in selector:
+              if sel.has_key('exact'):
+                  quote = sel['exact']
+        except:
+          print 'no selector for ' + info['target'][0]
         return quote
 
     @staticmethod
