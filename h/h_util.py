@@ -226,20 +226,22 @@ class HypothesisUtils:
     @staticmethod
     def make_quote_html(info):
         quote = ''
-        if info.has_key('target') == False:
-            return quote 
-        if len(info['target']) == 0:
-            return quote
-        if info['target'][0].has_key('selector') == False:
-            return quote 
-        uri = info['uri']
         try:
-          selector = info['target'][0]['selector']
+          if info.has_key('target') == False:
+              return quote 
+          if type(info['target']) == type(dict):
+              dict = info['target']
+          else:
+              dict = info['target'][0]
+          if dict.has_key('selector') == False:
+              return quote 
+          uri = info['uri']
+          selector = dict['selector']
           for sel in selector:
               if sel.has_key('exact'):
                   quote = sel['exact']
         except:
-          print 'no selector for ' + info['target'][0]
+          print 'no selector for ' + info['uri']
         return quote
 
     @staticmethod
