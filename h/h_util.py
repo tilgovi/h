@@ -1,4 +1,4 @@
-import requests, json, types, re, operator
+import requests, json, types, re, operator, traceback
 from pyramid.response import Response
 from datetime import datetime
 from collections import defaultdict
@@ -229,10 +229,14 @@ class HypothesisUtils:
         try:
           if info.has_key('target') == False:
               return quote 
-          if type(info['target']) == type(dict):
-              dict = info['target']
+          target = info['target']
+          if isinstance(target,list) and len(target) == 0:
+              return quote
+          dict = {}
+          if isinstance(target,list) and len(target) > 0:
+              dict = target[0]
           else:
-              dict = info['target'][0]
+              dict = target
           if dict.has_key('selector') == False:
               return quote 
           uri = info['uri']
@@ -241,7 +245,8 @@ class HypothesisUtils:
               if sel.has_key('exact'):
                   quote = sel['exact']
         except:
-          print 'no selector for ' + info['uri']
+          s = traceback.format_exc()
+          print s
         return quote
 
     @staticmethod
@@ -465,13 +470,12 @@ class HypothesisStream:
     def alt_stream_template(args):
         return u"""<html>
 <head>
-    <link rel="stylesheet" href="https://hypothes.is/assets/styles/app.min.css" />
-    <link rel="stylesheet" href="https://hypothes.is/assets/styles/hypothesis.m
-in.css" />
+    <link rel="stylesheet" href="https://hypothes.is/assets/styles/app.min.css" /> 
+    <link rel="stylesheet" href="https://hypothes.is/assets/styles/hypothesis.min.css" />
     <style>
-    body {{ padding: 10px; font-size: 10pt; }}
+    body {{ padding: 10px; font-size: 10pt; position:relative}}
     h1 {{ font-weight: bold; margin-bottom:10pt }}
-    .stream-url {{ margin-top: 12pt; margin-bottom: 4pt; overflow:hidden; border-style: solid; border-color: rgb(179, 173, 173); border-width: thin; padding: 4px;}}
+    .stream-url {{ margin-top: 12pt; margin-bottom: 4pt; overflow:hidde; border-style: solid; border-color: rgb(179, 173, 173); border-width: thin; padding: 4px;}}
     .stream-reference {{ margin-bottom:10pt; /*margin-left:6%*/ }}
     .stream-quote {{ /*margin-left: 3%;*/ margin-bottom: 4pt; font-style: italic }}
     .stream-text {{ margin-bottom: 4pt; /*margin-left:7%;*/ word-wrap: break-word }}
