@@ -214,14 +214,40 @@ class HypothesisUtils:
                 'tags':tags, 'text':text, 'references':refs, 'target':target, 'is_page_note':is_page_note, 'links':links }
 
     @staticmethod
-    def make_tag_html(info):
-        if len(info['tags']):
-            tag_items = []
-            for tag in info['tags']:
-                tag_items.append('<li><span class="tag-item">%s</span></li>' % tag)
-            return '<ul>%s</ul>' % '\n'.join(tag_items)
+    def init_tag_url(selected_user):
+        url = '/stream.alt'
+        if selected_user is not None:
+            url += '?user=' + selected_user
         else:
+            url += '?'
+        return url
+
+    @staticmethod
+    def make_tag_html(info, selected_user=None, selected_tags=None):
+
+        row_tags = info['tags']
+        if len(row_tags) == 0:
             return ''
+        if selected_tags is None:
+            selected_tags = ()
+
+        tag_items = []
+        for row_tag in row_tags:
+            url = HypothesisUtils.init_tag_url(selected_user)
+            if row_tag in selected_tags:
+                klass = "selected-tag-item"
+                tags = list(selected_tags)
+                tags.remove(row_tag)
+                url += '&tags=' + ','.join(tags)
+                tag_html = '<a title="remove filter on this tag" href="%s">%s</a>' % ( url, row_tag )
+            else:
+                klass = "tag-item"
+                tags = list(selected_tags)
+                tags.append(row_tag)
+                url += '&tags=' + ','.join(tags)
+                tag_html = '<a title="add filter on this tag" href="%s">%s</a>' % ( url, row_tag)
+            tag_items.append('<li class="%s">%s</li>' % (klass, tag_html))
+        return '<ul>%s</ul>' % '\n'.join(tag_items)
 
     @staticmethod
     def make_quote_html(info):
@@ -315,7 +341,7 @@ class HypothesisStream:
                     return True
         return False
 
-    def add_row(self, row):
+    def add_row(self, row, selected_user=None, selected_tags=None):
         info = HypothesisUtils.get_info_from_row(row)
         user = info['user']
         uri = info['uri']
@@ -328,7 +354,7 @@ class HypothesisStream:
 
         quote_html = HypothesisUtils.make_quote_html(info)
         text_html = HypothesisUtils.make_text_html(info)
-        tag_html = HypothesisUtils.make_tag_html(info)
+        tag_html = HypothesisUtils.make_tag_html(info, selected_user=selected_user, selected_tags=selected_tags)
         doc_title = info['doc_title']
         updated = info['updated']
         is_page_note = info['is_page_note']
@@ -362,6 +388,12 @@ class HypothesisStream:
     def alt_stream(request):
         q = urlparse.parse_qs(request.query_string)
         user, picklist, list = HypothesisStream.get_most_active_user_and_picklist_and_list(q)  
+        if q.has_key('tags'):
+            tags = q['tags'][0].split(',')
+            tags = [t.strip() for t in tags]
+            tags = tuple(tags)
+        else:
+            tags = None
         if q.has_key('user'):
             user = q['user'][0]
             if user not in list:
@@ -373,25 +405,33 @@ class HypothesisStream:
         else:
             head = '<p class="stream-selector"><a href="/stream.alt?by_url=yes">view recently annotated urls</a></p>'
             head += '<h1 class="stream-active-users-widget">urls recently annotated by {user} <span class="stream-picklist">{users}</span></h1>'.format(user=user, users=picklist)
-            body = HypothesisStream.make_alt_stream(user=user)
+            body = HypothesisStream.make_alt_stream(user=user, tags=tags)
         html = HypothesisStream.alt_stream_template( {'head':head,  'main':body} )
         return Response(html.encode('utf-8'))
 
     @staticmethod
-    def make_alt_stream(user=None, by_url=False):
-        activity = HypothesisStream()
+    def make_alt_stream(user=None, tags=None, by_url=False):
+        bare_search_url = '%s/search?limit=200' % HypothesisUtils().api_url
+        parameterized_search_url = bare_search_url
+
         if user is not None:
-            response = requests.get('%s/search?user=%s&limit=200' %
-                            (HypothesisUtils().api_url, user) )
-        elif by_url == True:
-            response = requests.get('%s/search?limit=200' % HypothesisUtils().api_url)
+            parameterized_search_url += '&user=' + user
+
+        if tags is not None:
+            for tag in tags:
+                parameterized_search_url += '&tags=' + tag
+
+        if by_url == True:
+            response = requests.get(bare_search_url)
         else:
-            return Response('what now?')
+            response = requests.get(parameterized_search_url)
 
         rows = response.json()['rows']
 
+        activity = HypothesisStream()
+
         for row in rows:
-            activity.add_row(row)
+            activity.add_row(row, selected_user=user, selected_tags=tags)
         activity.sort()
 
         s = ''
@@ -490,6 +530,7 @@ class HypothesisStream:
     annotation-timestamp {{ margin-right: 20px }}
     img {{ padding:10px }}
     a {{ word-wrap: break-word }}
+    .selected-tag-item {{ background-color: lightgray }}
     </style>
 </head>
 <body class="ng-scope">
