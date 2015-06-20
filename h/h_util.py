@@ -214,16 +214,20 @@ class HypothesisUtils:
                 'tags':tags, 'text':text, 'references':refs, 'target':target, 'is_page_note':is_page_note, 'links':links }
 
     @staticmethod
-    def init_tag_url(selected_user):
-        url = '/stream.alt'
+    def init_tag_url(limit=None, selected_user=None, by_url=None):
+        url = '/stream.alt?user='
         if selected_user is not None:
-            url += '?user=' + selected_user
-        else:
-            url += '?'
+            url += selected_user
+        url += '&by_url='
+        if by_url == 'yes':
+            url += 'yes'
+        url += '&limit='
+        if limit is not None:
+            url += str(limit)
         return url
 
     @staticmethod
-    def make_tag_html(info, selected_user=None, selected_tags=None):
+    def make_tag_html(info, limit=None, selected_user=None, selected_tags=None, by_url=None):
 
         row_tags = info['tags']
         if len(row_tags) == 0:
@@ -233,7 +237,7 @@ class HypothesisUtils:
 
         tag_items = []
         for row_tag in row_tags:
-            url = HypothesisUtils.init_tag_url(selected_user)
+            url = HypothesisUtils.init_tag_url(limit=limit, selected_user=selected_user, by_url=by_url)
             if row_tag in selected_tags:
                 klass = "selected-tag-item"
                 tags = list(selected_tags)
@@ -321,11 +325,12 @@ class HypothesisUtils:
 
 class HypothesisStream:
 
-    def __init__(self):
+    def __init__(self, limit=None):
         self.uri_bundles = defaultdict(list)
         self.uri_updates = {}
         self.uris_by_recent_update = []
         self.uri_references = {}
+        self.limit = limit
 
     def count_references(self, refs, uri):
         if self.uri_references.has_key(uri) == False:
@@ -341,7 +346,7 @@ class HypothesisStream:
                     return True
         return False
 
-    def add_row(self, row, selected_user=None, selected_tags=None):
+    def add_row(self, row, selected_user=None, selected_tags=None, by_url=None):
         info = HypothesisUtils.get_info_from_row(row)
         user = info['user']
         uri = info['uri']
@@ -354,7 +359,7 @@ class HypothesisStream:
 
         quote_html = HypothesisUtils.make_quote_html(info)
         text_html = HypothesisUtils.make_text_html(info)
-        tag_html = HypothesisUtils.make_tag_html(info, selected_user=selected_user, selected_tags=selected_tags)
+        tag_html = HypothesisUtils.make_tag_html(info, limit=self.limit, selected_user=selected_user, selected_tags=selected_tags, by_url=by_url)
         doc_title = info['doc_title']
         updated = info['updated']
         is_page_note = info['is_page_note']
@@ -386,6 +391,7 @@ class HypothesisStream:
 
     @staticmethod
     def alt_stream(request):
+        limit = 200
         q = urlparse.parse_qs(request.query_string)
         user, picklist, list = HypothesisStream.get_most_active_user_and_picklist_and_list(q)  
         if q.has_key('tags'):
@@ -394,24 +400,30 @@ class HypothesisStream:
             tags = tuple(tags)
         else:
             tags = None
+        if q.has_key('by_url'):
+            by_url=q['by_url'][0]
+        else:
+            by_url=None
         if q.has_key('user'):
             user = q['user'][0]
             if user not in list:
                 picklist = ''
-        if q.has_key('by_url'):
-            head = '<p class="stream-selector"><a href="/stream.alt">view recently active users</a></p>'
+        if by_url=='yes':
+            head = '<p class="stream-selector"><a href="/stream.alt?limit=%s">view recently active users</a></p>' % limit
             head += '<h1>urls recently annotated</h1>'
-            body = HypothesisStream.make_alt_stream(by_url=True)
+            body = HypothesisStream.make_alt_stream(user=None, tags=tags, by_url=by_url, limit=limit)
         else:
-            head = '<p class="stream-selector"><a href="/stream.alt?by_url=yes">view recently annotated urls</a></p>'
+            head = '<p class="stream-selector"><a href="/stream.alt?limit=%s&by_url=yes">view recently annotated urls</a></p>' % limit
             head += '<h1 class="stream-active-users-widget">urls recently annotated by {user} <span class="stream-picklist">{users}</span></h1>'.format(user=user, users=picklist)
-            body = HypothesisStream.make_alt_stream(user=user, tags=tags)
+            body = HypothesisStream.make_alt_stream(user=user, tags=tags, by_url=by_url, limit=limit)
         html = HypothesisStream.alt_stream_template( {'head':head,  'main':body} )
         return Response(html.encode('utf-8'))
 
     @staticmethod
-    def make_alt_stream(user=None, tags=None, by_url=False):
-        bare_search_url = '%s/search?limit=200' % HypothesisUtils().api_url
+    def make_alt_stream(user=None, tags=None, by_url=None, limit=None):
+        if limit is None:
+            limit = 200
+        bare_search_url = '%s/search?limit=%s' % ( HypothesisUtils().api_url, limit )
         parameterized_search_url = bare_search_url
 
         if user is not None:
@@ -421,17 +433,14 @@ class HypothesisStream:
             for tag in tags:
                 parameterized_search_url += '&tags=' + tag
 
-        if by_url == True:
-            response = requests.get(bare_search_url)
-        else:
-            response = requests.get(parameterized_search_url)
+        response = requests.get(parameterized_search_url)
 
         rows = response.json()['rows']
 
-        activity = HypothesisStream()
+        activity = HypothesisStream(limit=limit)
 
         for row in rows:
-            activity.add_row(row, selected_user=user, selected_tags=tags)
+            activity.add_row(row, selected_user=user, selected_tags=tags, by_url=by_url)
         activity.sort()
 
         s = ''
@@ -461,9 +470,9 @@ class HypothesisStream:
 
                 s += '<div class="paper stream-quote">'
 
-                if by_url == True:
+                if by_url == 'yes':
                     user = bundle['user']
-                    s += '<p class="stream-user">%s</p>' % user
+                    s += '<p class="stream-user"><a href="/stream.alt?user=%s">%s</a></p>' % (user,user)
 
                 references_html = bundle['references_html']
                 quote_html = bundle['quote_html']
@@ -520,7 +529,7 @@ class HypothesisStream:
     .stream-quote {{ /*margin-left: 3%;*/ margin-bottom: 4pt; font-style: italic }}
     .stream-text {{ margin-bottom: 4pt; /*margin-left:7%;*/ word-wrap: break-word }}
     .stream-tags {{ margin-bottom: 10pt; }}
-    .stream-user {{ font-weight: bold; margin-bottom: 4pt}}
+    .stream-user {{ font-weight: bold; margin-bottom: 4pt; font-style:normal}}
     .stream-selector {{ float:right; }}
     .stream-picklist {{ margin-left: 20pt }}
     .stream-active-users-widget {{ margin-top:0;}}
