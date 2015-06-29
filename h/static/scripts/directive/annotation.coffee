@@ -406,6 +406,26 @@ module.exports = [
         scope.$on '$destroy', ->
           if ctrl.editing then counter?.count 'edit', -1
 
+      elem.on('beforepaste', (e) -> e.preventDefault())
+      elem.on('paste', (event) ->
+        clipboardData = event.originalEvent.clipboardData
+        return unless 'text/html' in clipboardData.types
+
+        content = angular.element('<div></div>')
+        content.html(clipboardData.getData('text/html'))
+
+        link = content.find('link').last()
+        return unless link.attr('href') is 'annotator:clipTarget'
+
+        clipTargetData = localStorage.getItem('clipTarget')
+        return unless clipTargetData
+
+        event.preventDefault()
+        model = scope.annotationGet()
+        model.target ?= []
+        model.target.push(JSON.parse(clipTargetData))
+      )
+
     controller: AnnotationController
     controllerAs: 'vm'
     link: linkFn

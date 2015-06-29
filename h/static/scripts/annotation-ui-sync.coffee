@@ -30,6 +30,8 @@ module.exports = class AnnotationUISync
       setVisibleHighlights: (ctx, state) ->
         annotationUI.visibleHighlights = Boolean(state)
         bridge.notify(method: 'setVisibleHighlights', params: state)
+      setClipTarget: (ctx, data) ->
+        localStorage.setItem('clipTarget', data)
 
     # Because the channel events are all outside of the angular framework we
     # need to inform Angular that it needs to re-check it's state and re-draw

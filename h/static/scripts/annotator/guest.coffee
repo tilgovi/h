@@ -74,6 +74,9 @@ module.exports = class Guest extends Annotator
       if not @plugins[name] and Annotator.Plugin[name]
         this.addPlugin(name, opts)
 
+    $(document.body).on('beforecopy', (e) -> e.preventDefault())
+    $(document.body).on('copy', (e) => this.onCopy(e))
+
   # Get the document info
   getDocumentInfo: ->
     if @plugins.PDF?
@@ -386,3 +389,45 @@ module.exports = class Guest extends Annotator
         this.createAnnotation()
         this.triggerShowFrame()
     Annotator.Util.getGlobal().getSelection().removeAllRanges()
+
+  onCopy: (event) =>
+    self = this
+    selection = global.getSelection()
+    range = selection.getRangeAt(0)
+
+    return if range.collapsed
+
+    # Enable UI and clipboard transfer
+    event.preventDefault()
+
+    # Create an document fragment with a placeholder link tag
+    contents = range.cloneContents()
+    link = document.createElement('link')
+    link.href = 'annotator:clipTarget'
+    contents.appendChild(link)
+
+    # Copy the fragment into an empty element in order to capture the innerHTML
+    parent = document.createElement('div')
+    parent.appendChild(contents.cloneNode(true))
+
+    # Set the clipboard data (this must be done synchronously)
+    clipboardData = event.originalEvent.clipboardData
+    clipboardData.setData('text/html', parent.innerHTML)
+    clipboardData.setData('text/plain', selection.toString())
+
+    getSelectors = (range) ->
+      options = {ignoreSelector: '[class^="annotator-"]'}
+      return anchoring.describe(range, options)
+
+    getTargetData = ([info, selectors]) ->
+      return JSON.stringify({source: info.uri, selector: selectors})
+
+    setClipTarget = (data) ->
+      self.crossframe?.notify({method: 'setClipTarget', params: data})
+
+    info = this.getDocumentInfo()
+    selectors = getSelectors(range)
+
+    Promise.all([info, selectors])
+    .then(getTargetData)
+    .then(setClipTarget)
