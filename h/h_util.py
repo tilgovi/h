@@ -186,7 +186,7 @@ class HypothesisStream:
         self.by_url = 'no'
         self.selected_tags = None
         self.selected_user = None
-        self.redis_host = 'h.jonudell.info'
+        self.redis_host = 'localhost'
         self.anno_dict = redis.StrictRedis(host=self.redis_host, port=6379, db=0)
         self.ref_parents = redis.StrictRedis(host=self.redis_host, port=6379, db=1)
         self.ref_children = redis.StrictRedis(host=self.redis_host,port=6379, db=2)
