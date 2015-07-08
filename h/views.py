@@ -233,7 +233,7 @@ def includeme(config):
     config.add_view(HypothesisStream.alt_stream, route_name='alt_stream')
 
     config.add_route('alt_stream_js', '/stream.alt.js')
-    config.add_view(HypothesisUtils.alt_stream_js, route_name='alt_stream_js')
+    config.add_view(HypothesisStream.alt_stream_js, route_name='alt_stream_js')
 
 
     _validate_blocklist(config)

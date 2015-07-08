@@ -3,6 +3,7 @@ from pyramid.response import Response
 from datetime import datetime
 from collections import defaultdict
 from markdown import markdown
+from bs4 import BeautifulSoup
 import urlparse
 
 try:
@@ -161,21 +162,6 @@ class HypothesisUtils:
             return str(diff / month) + " months ago"
         return str(diff / year) + " years ago"
 
-    @staticmethod
-    def alt_stream_js(request):
-        """Temporarily here to keep assets contained in the module."""
-        from pyramid.response import Response
-        js = """
-     function show_user(by_url) {
-       var select = document.getElementsByName('active_users')[0];
-       var i = select.selectedIndex;
-       var user = select[i].value;
-       location.href= '/stream.alt?by_url=' + by_url + '&user=' + user;
-    } """
-        r = Response(js)
-        r.content_type = b'text/javascript'
-        return r
-
 class HypothesisStream:
 
     def __init__(self, limit=None):
@@ -190,6 +176,9 @@ class HypothesisStream:
         self.anno_dict = redis.StrictRedis(host=self.redis_host,port=6379, db=0) 
         self.ref_parents = redis.StrictRedis(host=self.redis_host,port=6379, db=1) 
         self.ref_children = redis.StrictRedis(host=self.redis_host,port=6379, db=2) 
+        self.user_annos = redis.StrictRedis(host=self.redis_host,port=6379, db=3) 
+        self.user_replies = redis.StrictRedis(host=self.redis_host,port=6379, db=4) 
+        self.user_icons = redis.StrictRedis(host=self.redis_host,port=6379, db=5)
         #self.anno_dict = anno_dict()
         #self.ref_parents = ref_parents()
         #self.ref_children = ref_children()
@@ -281,13 +270,13 @@ class HypothesisStream:
                 klass = "selected-tag-item"
                 tags.remove(row_tag)
                 url += '&tags=' + ','.join(tags)
-                tag_html = '<a title="remove filter on this tag" href="%s">%s</a>' % ( url, row_tag )
+                tag_html = '<a class="%s" title="remove filter on this tag" href="%s">%s</a>' % (klass, url, row_tag )
             else:
                 klass = "tag-item"
                 tags.append(row_tag)
                 url += '&tags=' + ','.join(tags)
-                tag_html = '<a title="add filter on this tag" href="%s">%s</a>' % ( url, row_tag)
-            tag_items.append('<li class="%s">%s</li>' % (klass, tag_html))
+                tag_html = '<a class="%s" title="add filter on this tag" href="%s">%s</a>' % (klass, url, row_tag)
+            tag_items.append('<li>%s</li>' % (tag_html))
         return '<ul>%s</ul>' % '\n'.join(tag_items)
 
     def get_active_user_data(self, q):
@@ -315,20 +304,22 @@ class HypothesisStream:
         if q.has_key('by_url'):
             h_stream.by_url=q['by_url'][0]
         else:
-            h_stream.by_url='yes'
+            h_stream.by_url = 'yes'
         user, picklist, userlist = h_stream.get_active_user_data(q)  
         if q.has_key('user'):
             user = q['user'][0]
-            if user not in userlist:
-                picklist = ''
+            #if user not in userlist:
+            #    picklist = ''
         if h_stream.by_url=='yes':
-            head = '<p class="stream-selector"><a href="/stream.alt?by_url=no">view recently active users</a></p>' 
+            head = '<h1 class="stream-picklist">recently active user %s</h1>' % (picklist)
             head += '<h1>urls recently annotated</h1>'
             body = h_stream.make_alt_stream(user=None, tags=tags)
         else:
-            head = '<p class="stream-selector"><a href="/stream.alt?by_url=yes">view recently annotated urls</a></p>' 
-            head += '<h1 class="stream-active-users-widget">urls recently annotated by {user} <span class="stream-picklist">{users}</span></h1>'.format(user=user, users=picklist)
-            body = h_stream.make_alt_stream(user=user, tags=tags)
+           head = '<h1 class="stream-picklist">recently active users %s</h1>' % (picklist)
+           head += '<h1 class="url-view-toggle"><a href="/stream.alt?by_url=yes">view recent annotations by url</a></h1>'
+           head += '<h1 class="user-contributions">%s has contributed %s annotations, of which %s were replies</h1>' % (user, h_stream.user_annos.get(user), h_stream.user_replies.get(user) )
+           head += '<h1 class="stream-active-users-widget">these urls were recently annotated by %s</h1>' % user
+           body = h_stream.make_alt_stream(user=user, tags=tags)
         html = HypothesisStream.alt_stream_template( {'head':head,  'main':body} )
         h_stream.anno_dict.connection_pool.disconnect()
         return Response(html.encode('utf-8'))
@@ -340,17 +331,23 @@ class HypothesisStream:
         return when
 
     def display_url(self, html_annotation, uri):
+        id = html_annotation.raw.id
+        if self.displayed_in_thread[id]:
+            return ''
         """Render an annotation's URI."""
         when = self.show_friendly_time(html_annotation.raw.updated)
         doc_title = html_annotation.raw.doc_title
         via_url = HypothesisUtils().via_url
         s = '<div class="stream-url">'
+        photo_url = self.user_icons.get(html_annotation.raw.user)
+        photo_url = 'http://jonudell.net/h/generic-user.jpg' if photo_url == None else photo_url
+        s += '<img class="user-image-small" src="%s"/>' % photo_url
         if uri.startswith('http'):
             s += """<a target="_new" class="ng-binding" href="%s">%s</a> 
 (<a title="use Hypothesis proxy" target="_new" href="%s/%s">via</a>)"""  % (uri, doc_title, via_url, uri)
         else:
             s += doc_title
-        s += """<span class="annotation-timestamp small pull-right ng-binding ng-scope">%s</span>
+        s += """<span class="small pull-right">%s</span>
 </div>""" % when
         return s
 
@@ -361,7 +358,7 @@ class HypothesisStream:
             id = html_annotation.raw.id
 
             if level > 0:
-                s += '<div id="%s" class="reply-%s">' % ( id, level )
+                s += '<div id="%s" class="reply reply-%s">' % ( id, level )
             else:
                 s += '<div id=%s" class="stream-annotation">' % id
         
@@ -427,6 +424,7 @@ class HypothesisStream:
                 html_annotation = html_annotations[i]
                 if html_annotation == '':
                     continue
+                
                 s += self.display_url(html_annotation, uri)  
 
                 id = html_annotation.raw.id
@@ -434,14 +432,13 @@ class HypothesisStream:
                 if self.debug: 
                     self.log += '%s, %s\n' % ( uri, id )
 
-                s += '<div class="paper">'
-
                 if self.ref_parents.get(id) is not None:   # if part of thread, display whole thread
                     id = self.find_thread_root(id)
                
-                s += self.make_singleton_or_thread_html(id)
-
-                s += '</div>'
+                if self.displayed_in_thread[id] == False:
+                    s += '<div class="paper">'
+                    s += self.make_singleton_or_thread_html(id)
+                    s += '</div>'
 
         return s
 
@@ -459,6 +456,10 @@ class HypothesisStream:
         return root
 
     def show_thread(self, id, level=None):
+        if self.displayed_in_thread[id]:
+            return
+        if self.anno_dict.exists(id) == False:
+            return
         try:
             if self.anno_dict.get(id) == None:
                 print '%s not found in anno_dict: ' % id
@@ -488,10 +489,26 @@ class HypothesisStream:
             option = option % (active_user[0], active_user[0], active_user[1])
             select += option
         select = """<select class="stream-active-users" name="active_users" 
-    onchange="javascript:show_user('%s')">
+    onchange="javascript:show_user()">
+    <option>choose</option>
     %s
-    </select>""" % (self.by_url, select)
+    </select>""" % (select)
         return most_active_user, select, active_users
+
+    @staticmethod
+    def alt_stream_js(request):
+        """Temporarily here to keep assets contained in the module."""
+        from pyramid.response import Response
+        js = """
+     function show_user() {
+       var select = document.getElementsByName('active_users')[0];
+       var i = select.selectedIndex;
+       var user = select[i].value;
+       location.href= '/stream.alt?by_url=no&user=' + user;
+    } """
+        r = Response(js)
+        r.content_type = b'text/javascript'
+        return r
 
     @staticmethod
     def alt_stream_template(args):
@@ -501,31 +518,32 @@ class HypothesisStream:
     <link rel="stylesheet" href="https://hypothes.is/assets/styles/app.min.css" /> 
     <link rel="stylesheet" href="https://hypothes.is/assets/styles/hypothesis.min.css" />
     <style>
-    body {{ padding: 10px; font-size: 10pt; position:relative}}
+    body {{ padding: 10px; font-size: 10pt; position:relative; margin-top: 2%; width:80%; margin-left: auto; margin-right:auto}}
     h1 {{ font-weight: bold; margin-bottom:10pt }}
-    .stream-url {{ margin-top: 12pt; margin-bottom: 4pt; overflow:hidde; border-style: solid; border-color: rgb(179, 173, 173); border-width: thin; padding: 4px;}}
-    .stream-reference {{ margin-bottom:10pt; /*margin-left:6%*/ }}
-    .stream-annotation {{ /*margin-left: 3%;*/ margin-bottom: 4pt; }}
-    .stream-text {{ margin-bottom: 4pt; /*margin-left:7%;*/ word-wrap: break-word }}
+    .stream-url {{ margin-top:3pt; word-wrap:break-word;  overflow:hidden; border-style: solid; border-color: rgb(179, 173, 173); border-width: thin; padding: 4px;}}
+    .stream-reference {{ margin-bottom:4pt; /*margin-left:6%*/ }}
+    .stream-annotation {{ /*margin-left: 3%; margin-bottom: 4pt; */}}
+    .stream-text {{ margin-bottom: 2pt; /*margin-left:7%;*/ word-wrap: break-word }}
     .stream-tags {{ margin-bottom: 10pt; }}
-    .stream-user {{ font-weight: bold; margin-bottom: 4pt; font-style:normal}}
+    .stream-user {{ font-weight: bold; font-style:normal}}
     .user-sig {{ font-size:smaller }}
-    .reply-1 {{ margin-left:2%; margin-top:10px; border-left: 1px dotted #969696; padding-left:10px }}
-    .reply-2 {{ margin-left:4%; margin-top:10px; border-left: 1px dotted #969696; padding-left:10px }}
-    .reply-3 {{ margin-left:6%; margin-top:10px; border-left: 1px dotted #969696; padding-left:10px }}
-    .reply-4 {{ margin-left:8%; margin-top:10px; border-left: 1px dotted #969696; padding-left:10px }}
-    .reply-5 {{ margin-left:10%; margin-top:10px; border-left: 1px dotted #969696; padding-left:10px }}
-    .tag-item {{ text-decoration: none; border: 1px solid #d3d3d3; border-radius: 2px; padding: 0 .4545em .1818em; color: #969696; background: #f9f9f9; }}
+    .reply  {{ margin-top:10px; border-left: 1px dotted #969696; padding-left:10px }}
+    .reply-1 {{ margin-left:2%; }}
+    .reply-2 {{ margin-left:4%; }}
+    .reply-3 {{ margin-left:6%; }}
+    .reply-4 {{ margin-left:8%; }}
+    .reply-5 {{ margin-left:10%; }}
     .stream-selector {{ float:right; }}
-    .stream-picklist {{ margin-left: 20pt }}
-    .stream-active-users-widget {{ margin-top:0;}}
+    .stream-picklist {{ font-size:smaller; float:right }}
     ul, li {{ display: inline }}
-    li {{ color: #969696; font-size: smaller; border: 1px solid #d3d3d3; border-radius: 2px; padding: 0 .4545em .1818em }}
+    li {{ color: #969696; font-size: smaller; border: 1px solid #d3d3d3; border-radius: 2px;}}
     img {{ max-width: 100% }}
     annotation-timestamp {{ margin-right: 20px }}
     img {{ padding:10px }}
-    a {{ word-wrap: break-word }}
-    .selected-tag-item {{ background-color: lightgray }}
+    a.tag-item {{ text-decoration: none; border: 1px solid #BBB3B3; border-radius: 2px; padding: 3px; color: #969696; background: #f9f9f9; }}
+    a.selected-tag-item {{ rgb(215, 216, 212); padding:3px; color:black; border: 1px solid black;}}
+    .user-contributions: {{ clear:left }}
+    .user-image-small {{ height: 20px; vertical-align:middle; margin-right:4px; padding:0 }}
     </style>
 </head>
 <body class="ng-scope">
@@ -539,30 +557,61 @@ class HypothesisStream:
         while True:
             print 'updating'
             self.update_anno_and_ref_dicts()
-            print 'sleeping'
-            time.sleep(60 * 2)
+            time.sleep(15)
+            
+    def increment_index(self, idx, key):
+        value = idx.get(key)
+        if value is not None:
+            value = int(value)
+            value += 1
+            idx.set(key,value)
+
+    def get_user_twitter_photo(self,user):
+        generic = 'http://jonudell.net/h/generic-user-icon.jpg'
+        r = requests.get('https://twitter.com/' + user)
+        if r.status_code != 200:
+            url = generic
+        try:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            img = soup.select('.ProfileAvatar-image')[0]
+            url = img.attrs['src']
+        except:
+            url = generic
+            print traceback.format_exc()
+        print user, url
+        return url
 
     def update_anno_and_ref_dicts(self):
         
         for row in HypothesisUtils().search_all():
             raw = HypothesisRawAnnotation(row) 
             id = raw.id
+            user = raw.user
+            refs = raw.references
             if self.anno_dict.get(id) == None:
                 self.anno_dict.set(id, json.dumps(row))
+                self.increment_index(self.user_annos, user)
+                if len(refs):
+                    self.increment_index(self.user_replies, user)
                 print 'new: ' + id
+            if self.user_icons.get(user) is None:
+                self.user_icons.set(user, self.get_user_twitter_photo(user))
 
         for row in HypothesisUtils().search_all():
             raw = HypothesisRawAnnotation(row) 
             id = raw.id
+            user = raw.user
             if len(raw.references):
                 ref = raw.references[-1]
                 try:
-                    children = json.loads(self.ref_children.get(ref))
-                    if children is None:
+                    children_json = self.ref_children.get(ref)
+                    if children_json is not None:
+                        children = json.loads(children_json)
+                    else:
                         children = []
                     if raw.id not in children:
                         children.append(id)
-                    self.ref_children.set(ref, json.dumps(children))           
+                        self.ref_children.set(ref, json.dumps(children))           
                     self.ref_parents.set(id, ref)
                 except:
                     print traceback.format_exc()
