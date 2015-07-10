@@ -1,4 +1,5 @@
-import requests, json, types, re, operator, traceback, thread, time, redis
+import requests
+import json, types, re, operator, traceback, time, redis
 from pyramid.response import Response
 from datetime import datetime
 from collections import defaultdict
@@ -67,7 +68,7 @@ class HypothesisUtils:
             for row in rows:
                 yield row
 
-    def make_annotation_payload(self, url, start_pos, end_pos, prefix, quote, suffix, text, tags, link):
+    def make_annotation_payload_with_target(self, url, start_pos, end_pos, prefix, quote, suffix, text, tags, link):
         """Create JSON payload for API call."""
         payload = {
             "uri": url,
@@ -105,11 +106,38 @@ class HypothesisUtils:
         }
         return payload
 
-    def create_annotation(self, url=None, start_pos=None, end_pos=None, prefix=None, 
+    def make_annotation_payload_without_target(self, url, text, tags, link):
+        """Create JSON payload for API call."""
+        payload = {
+            "uri": url,
+            "user": 'acct:' + self.username + '@hypothes.is',
+            "permissions": {
+                "read": ["group:__world__"],
+                "update": ['acct:' + self.username + '@hypothes.is'],
+                "delete": ['acct:' + self.username + '@hypothes.is'],
+                "admin":  ['acct:' + self.username + '@hypothes.is']
+                },
+            "document": {
+                "link":  link   # link is a list of dict
+                },
+            "tags": tags,
+            "text": text
+        }
+        return payload
+
+    def create_annotation_with_target(self, url=None, start_pos=None, end_pos=None, prefix=None, 
                quote=None, suffix=None, text=None, tags=None, link=None):
-        """Call API with token and payload."""
+        """Call API with token and payload, create annotation"""
         headers = {'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json;charset=utf-8' }
-        payload = self.make_annotation_payload(url, start_pos, end_pos, prefix, quote, suffix, text, tags, link)
+        payload = self.make_annotation_payload_with_target(url, start_pos, end_pos, prefix, quote, suffix, text, tags, link)
+        data = json.dumps(payload, ensure_ascii=False)
+        r = requests.post(self.api_url + '/annotations', headers=headers, data=data)
+        return r
+
+    def create_annotation_without_target(self, url=None, text=None, tags=None, link=None):
+        """Call API with token and payload, create page note (annotation with no target)"""
+        headers = {'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json;charset=utf-8' }
+        payload = self.make_annotation_payload_without_target(url, text, tags, link)
         data = json.dumps(payload, ensure_ascii=False)
         r = requests.post(self.api_url + '/annotations', headers=headers, data=data)
         return r
@@ -179,6 +207,7 @@ class HypothesisStream:
         self.user_annos = redis.StrictRedis(host=self.redis_host,port=6379, db=3) 
         self.user_replies = redis.StrictRedis(host=self.redis_host,port=6379, db=4) 
         self.user_icons = redis.StrictRedis(host=self.redis_host,port=6379, db=5)
+        self.uri_users = redis.StrictRedis(host=self.redis_host,port=6379, db=6)
         #self.anno_dict = anno_dict()
         #self.ref_parents = ref_parents()
         #self.ref_children = ref_children()
@@ -349,6 +378,16 @@ class HypothesisStream:
             s += doc_title
         s += """<span class="small pull-right">%s</span>
 </div>""" % when
+        try:
+            users = self.uri_users.get(uri)
+            if users is not None and len(users) > 1:
+                users = set(json.loads(users))
+                users.remove(html_annotation.raw.user)
+                if len(users):
+                    users = ['<a href="/stream.alt?by_url=no&user=%s">%s</a>' % (user, user) for user in users]
+                    s += '<p class="other-users">also annotated by %s</p>' % ', '.join(users)
+        except:
+            print traceback.format_exc()
         return s
 
     def make_html_annotation(self, html_annotation=None, level=None):
@@ -544,6 +583,7 @@ class HypothesisStream:
     a.selected-tag-item {{ rgb(215, 216, 212); padding:3px; color:black; border: 1px solid black;}}
     .user-contributions: {{ clear:left }}
     .user-image-small {{ height: 20px; vertical-align:middle; margin-right:4px; padding:0 }}
+    .other-users {{ font-size:smaller;font-style:italic }}
     </style>
 </head>
 <body class="ng-scope">
@@ -556,6 +596,7 @@ class HypothesisStream:
     def make_indexes(self):
         while True:
             print 'updating'
+            self.update_uri_users_dict()
             self.update_anno_and_ref_dicts()
             time.sleep(15)
             
@@ -581,9 +622,22 @@ class HypothesisStream:
         print user, url
         return url
 
-    def update_anno_and_ref_dicts(self):
+    def update_uri_users_dict(self):
+        rows = HypothesisUtils().search_all()
         
-        for row in HypothesisUtils().search_all():
+        for row in rows:
+            raw = HypothesisRawAnnotation(row) 
+            if self.uri_users.get(raw.uri) is None:
+                self.uri_users.set(raw.uri, json.dumps([]))
+            users = json.loads(self.uri_users.get(raw.uri))
+            if raw.user not in users:
+                users.append(raw.user)
+                self.uri_users.set(raw.uri, json.dumps(users))
+      
+    def update_anno_and_ref_dicts(self):
+        rows = HypothesisUtils().search_all()
+
+        for row in rows:
             raw = HypothesisRawAnnotation(row) 
             id = raw.id
             user = raw.user
@@ -597,7 +651,7 @@ class HypothesisStream:
             if self.user_icons.get(user) is None:
                 self.user_icons.set(user, self.get_user_twitter_photo(user))
 
-        for row in HypothesisUtils().search_all():
+        for row in rows:
             raw = HypothesisRawAnnotation(row) 
             id = raw.id
             user = raw.user
