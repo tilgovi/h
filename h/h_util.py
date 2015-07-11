@@ -6,6 +6,14 @@ from collections import defaultdict
 from markdown import markdown
 from bs4 import BeautifulSoup
 import urlparse
+from dateutil import parser
+from datetime import date, timedelta
+import matplotlib
+matplotlib.use('svg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import cStringIO, re
 
 try:
     from urllib.parse import urlencode
@@ -348,6 +356,9 @@ class HypothesisStream:
            head = '<h1 class="stream-picklist">recently active users %s</h1>' % (picklist)
            head += '<h1 class="url-view-toggle"><a href="/stream.alt?by_url=yes">view recent annotations by url</a></h1>'
            head += '<h1 class="user-contributions">%s has contributed %s annotations, of which %s were replies</h1>' % (user, h_stream.user_anno_counts.get(user), h_stream.user_replies.get(user) )
+           timeline_counts, timeline_days = h_stream.make_timeline_data(user)
+           timeline = h_stream.create_timeline(timeline_counts, timeline_days)
+           head += timeline
            head += '<h1 class="stream-active-users-widget">these urls were recently annotated by %s</h1>' % user
            body = h_stream.make_alt_stream(user=user, tags=tags)
         html = HypothesisStream.alt_stream_template( {'head':head,  'main':body} )
@@ -676,7 +687,7 @@ class HypothesisStream:
                     print 'id: ' + ref
 
 
-    def create_timeline(self,title, counts, days):
+    def create_timeline(self,counts, days):
         dataset = pd.DataFrame( { 'Day': pd.Series(days),
                                  'Counts': pd.Series(counts) } )
         sns.set_style("whitegrid")
@@ -693,7 +704,7 @@ class HypothesisStream:
         s = ram.getvalue()
         ram.close()
         s = re.sub('<svg[^<]+>', '<svg preserveAspectRatio="none" height="100%" version="1.1" viewBox="0 0 576 288" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">', s)
-        s = '<div style="width:100%;height:100%">' + s + '</div>'
+        s = '<div style="width:100%;height:60px">' + s + '</div>'
         f = open('chart.html','w')
         f.write(s)
         f.close()
