@@ -11,7 +11,6 @@ import textwrap
 import urlparse
 import json
 
-from jinja2 import Template
 from pyramid import paster
 from pyramid.path import AssetResolver
 from pyramid.request import Request
@@ -91,8 +90,6 @@ def chrome_manifest(request):
         version = h.__version__
         version_name = 'Official Build'
 
-    manifest_file = open('h/browser/chrome/manifest.json')
-    manifest_tpl = Template(manifest_file.read())
     src = request.resource_url(request.context)
 
     # We need to use only the host and port for the CSP script-src when
@@ -103,15 +100,20 @@ def chrome_manifest(request):
     if urlparse.urlparse(src).hostname not in ('localhost', '127.0.0.1'):
         src = urlparse.urljoin(src, request.webassets_env.url)
 
-    return manifest_tpl.render(src=src, version=version,
-                               version_name=version_name)
+    value = {
+        'src': src,
+        'version': version,
+        'version_name': version_name
+    }
+
+    return render('h:browser/chrome/manifest.json.jinja2', value,
+                  request=request)
 
 
 def firefox_manifest(request):
-    version = h.__version__
-    manifest_file = open('h/browser/firefox/package.json')
-    manifest_tpl = Template(manifest_file.read())
-    return manifest_tpl.render(version=version)
+    return render('h:browser/firefox/package.json.jinja2',
+           {'version': h.__version__},
+           request=request)
 
 
 def get_env(config_uri, base_url):
