@@ -23,7 +23,7 @@
     "tabs"
   ],
   "content_security_policy":
-    "script-src 'self' 'unsafe-eval' {{ src }} https://cdn.mathjax.org; object-src 'self'; font-src 'self' data:;",
+    "script-src 'self' 'unsafe-eval' {{ src }}{% if ga_tracking_id %} https://www.google-analytics.com{% endif %} https://cdn.mathjax.org; object-src 'self'; font-src 'self' data:;",
 
   "background": {
     "persistent": true,
