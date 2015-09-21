@@ -2,6 +2,7 @@
 
 var assert = require('assert');
 
+// @ngInject
 function GroupsListController($scope) {
   $scope.expandedGroupId = undefined;
 
@@ -24,10 +25,6 @@ function GroupsListController($scope) {
   $scope.shouldShowShareLink = function (groupId) {
     return $scope.expandedGroupId === groupId;
   }
-
-  $scope.linkForGroup = function (groupId) {
-    return $scope.baseURI + 'groups/' + groupId;
-  }
 }
 
 /**
@@ -39,13 +36,13 @@ function GroupsListController($scope) {
 // @ngInject
 module.exports = function (groups) {
   return {
-    controller: ['$scope', GroupsListController],
+    controller: GroupsListController,
     link: function ($scope, elem, attrs) {
       $scope.groups = groups;
 
-      // set the base URI used later to construct the sharing
-      // link for the group
-      $scope.baseURI = elem[0].ownerDocument.baseURI;
+      $scope.createNewGroup = function() {
+        window.open('/groups/new', '_blank');
+      }
 
       $scope.$watch('expandedGroupId', function (activeGroupId) {
         if (activeGroupId) {
