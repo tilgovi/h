@@ -2,6 +2,8 @@
 import pytest
 import mock
 
+from pyramid import httpexceptions
+
 from h.api import logic
 
 
@@ -38,6 +40,19 @@ def test_create_annotation_pops_protected_fields(Annotation):
 
     for field in ('created', 'updated', 'user', 'consumer', 'id'):
         assert field not in Annotation.call_args[0][0]
+
+
+@create_annotation_fixtures
+def test_create_annotation_raises_BadRequest_for_invalid_document_link():
+    with pytest.raises(httpexceptions.HTTPBadRequest):
+        logic.create_annotation(
+            fields={
+                'document': {
+                    'link': None  # Invalid link.
+                }
+            },
+            user=mock.Mock()
+        )
 
 
 @create_annotation_fixtures

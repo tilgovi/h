@@ -3,7 +3,9 @@
 
 import mock
 import pytest
+
 from pyramid import testing
+from pyramid import httpexceptions
 
 from h.api import views
 
@@ -163,6 +165,18 @@ def test_create_calls_create_annotation_once(logic):
     views.create(request)
 
     assert logic.create_annotation.call_count == 1
+
+
+@create_fixtures
+def test_create_returns_api_error_for_HTTPBadRequest(logic):
+    logic.create_annotation.side_effect = httpexceptions.HTTPBadRequest(
+        mock.sentinel.reason)
+
+    response = views.create(mock.Mock())
+
+    assert response['status'] == 'failure'
+    assert response['reason'] == mock.sentinel.reason
+
 
 
 @create_fixtures

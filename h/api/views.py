@@ -149,8 +149,11 @@ def create(request):
 
     user = get_user(request)
 
-    # Create the annotation
-    annotation = logic.create_annotation(fields=fields, user=user)
+    try:
+        # Create the annotation
+        annotation = logic.create_annotation(fields=fields, user=user)
+    except httpexceptions.HTTPBadRequest as err:
+        return _api_error(request, err.message, status_code=400)
 
     # Notify any subscribers
     _publish_annotation_event(request, annotation, 'create')
