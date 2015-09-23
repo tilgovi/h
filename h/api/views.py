@@ -13,6 +13,7 @@ from h.api.auth import get_user
 from h.api.events import AnnotationEvent
 from h.api import search as search_lib
 from h.api import logic
+from h.api import validators
 from h.api.resources import Annotation
 from h.api.resources import Annotations
 from h.api.resources import Root
@@ -147,13 +148,14 @@ def create(request):
                           'No JSON payload sent. Annotation not created.',
                           status_code=400)  # Client Error: Bad Request
 
+    try:
+        validators.Annotation(fields).validate()
+    except validators.Error as err:
+        return _api_error(request, err.message, status_code=400)
+
     user = get_user(request)
 
-    try:
-        # Create the annotation
-        annotation = logic.create_annotation(fields=fields, user=user)
-    except httpexceptions.HTTPBadRequest as err:
-        return _api_error(request, err.message, status_code=400)
+    annotation = logic.create_annotation(fields=fields, user=user)
 
     # Notify any subscribers
     _publish_annotation_event(request, annotation, 'create')

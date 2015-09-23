@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
 
-from pyramid import httpexceptions
-
 from h import i18n
 
 from h.api.models import Annotation
@@ -18,20 +16,10 @@ PROTECTED_FIELDS = ['created', 'updated', 'user', 'consumer', 'id']
 
 
 def create_annotation(fields, user):
-    """Create and store an annotation.
-
-    :raises pyramid.httpexceptions.HTTPBadRequest: If the given fields are
-        invalid
-
-    """
+    """Create and store an annotation."""
     # Some fields are not to be set by the user, ignore them
     for field in PROTECTED_FIELDS:
         fields.pop(field, None)
-
-    if 'document' in fields and 'link' in fields['document']:
-        if not isinstance(fields['document']['link'], list):
-            raise httpexceptions.HTTPBadRequest(
-                "document.link must be an array")
 
     # Create Annotation instance
     annotation = Annotation(fields)

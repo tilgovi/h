@@ -5,9 +5,9 @@ import mock
 import pytest
 
 from pyramid import testing
-from pyramid import httpexceptions
 
 from h.api import views
+from h.api import validators
 
 
 def _mock_annotation(**kwargs):
@@ -131,7 +131,8 @@ def test_annotations_index_renders_results(search_lib):
 
 # The fixtures required to mock all of create()'s dependencies.
 create_fixtures = pytest.mark.usefixtures(
-    'get_user', 'logic', 'AnnotationEvent', 'search_lib')
+    'get_user', 'logic', 'AnnotationEvent', 'search_lib',
+    'AnnotationValidator')
 
 
 @create_fixtures
@@ -168,15 +169,24 @@ def test_create_calls_create_annotation_once(logic):
 
 
 @create_fixtures
-def test_create_returns_api_error_for_HTTPBadRequest(logic):
-    logic.create_annotation.side_effect = httpexceptions.HTTPBadRequest(
+def test_create_calls_validator(AnnotationValidator):
+    request = mock.Mock()
+
+    views.create(request)
+
+    AnnotationValidator.assert_called_once_with(request.json_body)
+    AnnotationValidator.return_value.validate.assert_called_once_with()
+
+
+@create_fixtures
+def test_create_returns_api_error_for_validation_error(AnnotationValidator):
+    AnnotationValidator.return_value.validate.side_effect = validators.Error(
         mock.sentinel.reason)
 
     response = views.create(mock.Mock())
 
     assert response['status'] == 'failure'
     assert response['reason'] == mock.sentinel.reason
-
 
 
 @create_fixtures
@@ -479,5 +489,12 @@ def _publish_annotation_event(request):
 @pytest.fixture
 def access_token(request):
     patcher = mock.patch('h.api.views.access_token', autospec=True)
+    request.addfinalizer(patcher.stop)
+    return patcher.start()
+
+
+@pytest.fixture
+def AnnotationValidator(request):
+    patcher = mock.patch('h.api.views.validators.Annotation', autospec=True)
     request.addfinalizer(patcher.stop)
     return patcher.start()
